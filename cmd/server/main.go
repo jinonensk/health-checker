@@ -7,6 +7,7 @@ import (
 
 	"github.com/jinonensk/health-checker/internal/config"
 	"github.com/jinonensk/health-checker/internal/logger"
+	"github.com/jinonensk/health-checker/internal/storage"
 )
 
 func main() {
@@ -16,6 +17,12 @@ func main() {
 		Level:  cfg.LogLevel,
 		Format: cfg.LogFormat,
 	})
+
+	_, err := storage.NewSQLiteStorage("sites.db")
+	if err != nil {
+		slog.Error("failed to init storage", "error", err)
+		return
+	}
 
 	http.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
