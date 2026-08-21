@@ -109,3 +109,30 @@ func applyMigrations(db *sql.DB) error {
 	}
 	return nil
 }
+
+// CreateSite добавляет новый сайт в базу данных.
+// Принимает указатель на Site, заполняет его поле ID (автогенерируемое значение)
+// и возвращает ошибку, если что-то пошло не так.
+func (s *SQLiteStorage) CreateSite(site *Site) error {
+	// 1. Подготавливаем SQL-запрос с возвратом сгенерированного ID
+	query := `
+        INSERT INTO sites (url, interval_sec)
+        VALUES (?, ?)
+    `
+	// 2. Выполняем запрос, передавая значения полей
+	result, err := s.db.Exec(query, site.URL, site.IntervalSec)
+	if err != nil {
+		return fmt.Errorf("failed to insert site: %w", err)
+	}
+
+	// 3. Получаем ID последней вставленной записи
+	id, err := result.LastInsertId()
+	if err != nil {
+		return fmt.Errorf("failed to get last insert ID: %w", err)
+	}
+
+	// 4. Присваиваем ID переданной структуре
+	site.ID = int(id)
+
+	return nil
+}
