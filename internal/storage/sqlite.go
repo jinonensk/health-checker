@@ -136,3 +136,61 @@ func (s *SQLiteStorage) CreateSite(site *Site) error {
 
 	return nil
 }
+
+// GetSiteByID возвращает сайт по его ID.
+// Если сайт не найден, возвращает (nil, nil) — без ошибки.
+// В случае ошибки БД возвращает (nil, error).
+func (s *SQLiteStorage) GetSiteByID(id int) (*Site, error) {
+	// 1. Пишем SQL-запрос
+	query := `
+        SELECT id, url, interval_sec, 
+               COALESCE(last_check, '') as last_check,
+               COALESCE(last_status, 0) as last_status,
+               COALESCE(response_time, 0) as response_time,
+               created_at
+        FROM sites
+        WHERE id = ?
+    `
+	// 2. Выполняем запрос с параметром id
+	row := s.db.QueryRow(query, id)
+
+	// 3. Создаём пустую структуру для сканирования
+	var site Site
+	// Объявляем переменные для nullable полей (используем sql.NullTime и sql.NullInt64)
+	var lastCheck sql.NullTime
+	var lastStatus sql.NullInt64
+	var responseTime sql.NullInt64
+
+	// 4. Сканируем строку в переменные
+	err := row.Scan(
+		&site.ID,
+		&site.URL,
+		&site.IntervalSec,
+		&lastCheck,
+		&lastStatus,
+		&responseTime,
+		&site.CreatedAt,
+	)
+	if err != nil {
+		// Если запись не найдена, sql.ErrNoRows — это не ошибка, а отсутствие данных
+		if err == sql.ErrNoRows {
+			return nil, nil // нет записи, но ошибки нет
+		}
+		return nil, fmt.Errorf("failed to scan site: %w", err)
+	}
+
+	// 5. Преобразуем nullable поля в указатели (для JSON-сериализации)
+	if lastCheck.Valid {
+		site.LastCheck = &lastCheck.Time
+	}
+	if lastStatus.Valid {
+		status := int(lastStatus.Int64)
+		site.LastStatus = &status
+	}
+	if responseTime.Valid {
+		rt := int(responseTime.Int64)
+		site.ResponseTime = &rt
+	}
+
+	return &site, nil
+}
